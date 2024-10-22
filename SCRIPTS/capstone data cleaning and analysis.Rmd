@@ -1,0 +1,112 @@
+---
+title: "Capstone"
+author: "Ruoyun Li"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load data and libraries
+```{r}
+load("/Users/ruoyunrosa/Desktop/STAT 4996/SurveyDF.rda")
+Survey<-da38964.0001
+
+library(tidyverse, ggplot2, corrplot)
+```
+
+## data cleaning
+
+```{r}
+# extract numbers inside parentheses
+extract_number <- function(x) {
+  gsub("\\((\\d+)\\) .*", "\\1", x)
+}
+# apply the function to column 4-372
+Survey[, 4:372] <- lapply(Survey[, 4:372], extract_number)
+
+# convert character into integer
+Survey[, 4:372] <- lapply(Survey[, 4:372], function(x) as.integer(x))
+Survey[, 4:372] <- as.data.frame(Survey[, 4:372])
+```
+
+```{r}
+head(Survey)
+str(Survey)
+```
+
+
+## Variable transformations
+
+```{r}
+Survey <- Survey %>%
+  mutate_if(~is.numeric(.), as.factor) %>%
+  mutate_at(vars(DOWN, WORRY, INTEREST, NERVOUS, SAT1, SAT2, SAT3, SAT4, SAT5, AGE), as.numeric)
+
+Survey$SEX <- factor(Survey$SEX, levels = c(1, 2, 3), labels = c("Male", "Female", "Other"))
+Survey$MARSTAT <- factor(Survey$MARSTAT, levels = c(1, 2, 3,4,5,6,99), labels = c("Married", "Divorced", "Separated", "Widowed", "Single", "Unmarried couple", "Refusal"))
+Survey$COV_RENTMORT <- factor(Survey$COV_RENTMORT, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+```
+
+
+how do we deal with missing values (don't know, refusal)?
+```{r}
+# Calculate Life Satisfaction Score: 0-30
+Survey$SATsum <- Survey$SAT1+Survey$SAT2+Survey$SAT3+Survey$SAT4+Survey$SAT5
+summary(Survey$SATsum)
+# Calculate PHQ score: 0-12
+Survey$PHQsum <- Survey$DOWN+Survey$WORRY+Survey$INTEREST+Survey$NERVOUS
+summary(Survey$PHQsum)
+```
+
+
+## EDA
+
+Histograms for continuous vars
+```{r}
+Surveycleaned <- Survey %>%
+  filter(SATsum <= 30, PHQsum <= 12)
+hist(Surveycleaned$SATsum)
+hist(Surveycleaned$PHQsum)
+hist(Survey$AGE)
+```
+
+
+Hoe do we use WEIGHTS during analysis?
+For basic statistical summaries, use the weighted.mean() and other weighted functions.
+For regression analysis, apply the weights argument in lm() or use the survey package
+
+```{r}
+# Boxplot for life satisfaction by sex (male, female, other)
+ggplot(Survey, aes(x=SEX, y=SATsum)) +
+  geom_boxplot() +
+  labs(title="Satisfaction With Life Scale by Gender", x="Sex", y="Satisfaction With Life Scale")
+
+# Boxplot for life satisfaction by marital status
+ggplot(Survey, aes(x=MARSTAT, y=SATsum)) +
+  geom_boxplot() +
+  labs(title="Satisfaction With Life Scale by Marital Status", x="Marital Status", y="Satisfaction With Life Scale")
+
+# Boxplot for life satisfaction by missed rent due to COVID
+ggplot(Survey, aes(x=COV_RENTMORT, y=SATsum)) +
+  geom_boxplot() +
+  labs(title="Satisfaction With Life Scale by Missed Rent Due to COVID", x="Missed Rent Due to COVID", y="Satisfaction With Life Scale")
+
+```
+
+```{r}
+# Correlation matrix for continuous variables: PHQ, life satisfaction, Age
+cont_vars <- Survey %>% select(AGE, SATsum, PHQsum)
+cor(cont_vars, use="complete.obs")
+
+```
+```{r}
+ggplot(Survey, aes(x=SATsum, y=PHQsum, color=SEX)) +
+  geom_point() +                                  
+  geom_smooth(method="lm", se=FALSE) +            
+  labs(x="Life satisfaction", y="PHQ", title="Scatterplot with Regression Lines by SEX") +
+  scale_color_manual(values=c("blue", "red","orange"))
+```
+
