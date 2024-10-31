@@ -1,0 +1,58 @@
+---
+title: "Mediation Analysis" 
+author: "Nathan Wan"
+fontsize: 12pt
+geometry: margin=1in
+urlcolor: black
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, highlight=FALSE,warning=FALSE)
+options(tinytex.verbose = TRUE)
+```
+```{r}
+library(tidyverse)
+ppdata = read.csv("surveydata.csv")
+
+# select variables of interest
+data = select(ppdata, AGE, SEX, HISPANIC, R_WHITE, R_BLACK, R_AIAN, R_API, R_OTHER, R_DK, RACEREC, EDUC, HAPPY, SAT1, SAT2, SAT3, SAT4, SAT5, INC_SS, INC_INV, INC_BUS, INC_HHEMP, INC_INFORMAL, INC_OWNEMP, INC_UI, INC_VA, INC_CHILDSUPP, INC_DIS, HEALTH_INS, MARSTAT, SEXUALITY, HH_PEOPLE, FINAL_WGT, MENT_HEALTH, JOB_MENTDEM, PTSD, DEPRESSION, ANXIETY, ALC_DIS, SLEEPHRS, SLEEP_TROUBLE, DOWN, WORRY, INTEREST, NERVOUS, MED_MH, JOB_WORKLOAD, COV_FINSIT, HOUSING_2, COV_MH, COV_STIMULUS, COV_MH, COV_MORTDEF_2, COV_MEDBILLS, COV_OTHERPAYMENT, COV_CREDITDEBT, COV_RENTMORT, COV_MONEYFOOD, COV_EXTUI, BEN_FAMLEAVE, BEN_PAIDSICK, BEN_PAIDVAC, BEN_HEALTHINS, BEN_RET, BEN_TUITION, BEN_CHILDCARE, BEN_HOUSING, PUB_EITC, RELIG_ATTEND, RELIG_IMP, EMP_1, EMP_2, LAIDOFF, DISABLED, STUDENT, UNEMP_LOOKING, UNEMP_NOTLOOK, RETIRED, MILITARY, COMBAT)
+
+# variable transformations
+data = data %>%
+  mutate_if(~is.numeric(.), as.factor) %>%
+  mutate_at(vars(DOWN, WORRY, INTEREST, NERVOUS, SAT1, SAT2, SAT3, SAT4, SAT5, AGE), as.numeric)
+
+data$SEX = factor(data$SEX, levels = c(1, 2, 3), labels = c("Male", "Female", "Other"))
+data$MARSTAT = factor(data$MARSTAT, levels = c(1, 2, 3,4,5,6,99), labels = c("Married", "Divorced", "Separated", "Widowed", "Single", "Unmarried couple", "Refusal"))
+data$COV_RENTMORT = factor(data$COV_RENTMORT, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+
+# get rid of no answer values DONT USE FOR NOW, ONLY LEAVES 80 ROWS
+# values_to_remove = c(96,98,99,100)
+# data = data[!rowSums(sapply(data, function(x) x %in% values_to_remove)) > 0, ]
+```
+### Baron and Kenny Method
+```{r}
+# Show that X is correlated with Y. Regress Y on X to estimate and test path c. This step establishes that there is an effect that may be mediated.
+summary(lm(mental~finance))
+
+# Show that X is correlated with M. Regress M on X to estimate and test path a. Treats mediator as if it were response.
+summary(lm(socioeconomic~finance))
+
+# Show that M affects Y. Regress Y on both X and M to estimate and test path b. Note that it is not sufficient just to correlate the mediator with the outcome; the mediator and the outcome may be correlated because they are both caused by the input variable X. Thus, the input variable X must be controlled in establishing the effect of the mediator on the outcome.
+summary(lm(mental~finance + socioeconomic))
+
+# To establish that M completely mediates the X-Y relationship, the effect of X on Y controlling for M (path c) should be zero.
+```
+### Sobel Test and Bootstrapping
+```{r}
+library(bmem)
+library(sem)
+
+# 1: math = b*HE + cp*ME 2: HE = a*ME HE mediator ME explanatory
+data.model = specifyEquations(exog.variances=T)
+effects = c('a*b','cp+a*b')
+data.res = bmem.sobel(data, data.model, effects) #sobel
+data.res2=bmem(data, data.model, effects, boot=1000) #bootstrap
+```
+https://advstats.psychstat.org/book/mediation/index.php for tutorial
