@@ -1,0 +1,38 @@
+---
+title: "Missing Data Analysis" 
+author: "Nathan Wan"
+fontsize: 12pt
+geometry: margin=1in
+urlcolor: black
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, highlight=FALSE,warning=FALSE)
+options(tinytex.verbose = TRUE)
+```
+```{r}
+library(tidyverse)
+ppdata = read.csv("surveydata.csv")
+
+# select variables of interest
+data = select(ppdata, AGE, SEX, HISPANIC, R_WHITE, R_BLACK, R_AIAN, R_API, R_OTHER, R_DK, RACEREC, EDUC, HAPPY, SAT1, SAT2, SAT3, SAT4, SAT5, INC_SS, INC_INV, INC_BUS, INC_HHEMP, INC_INFORMAL, INC_OWNEMP, INC_UI, INC_VA, INC_CHILDSUPP, INC_DIS, HEALTH_INS, MARSTAT, SEXUALITY, HH_PEOPLE, FINAL_WGT, MENT_HEALTH, JOB_MENTDEM, PTSD, DEPRESSION, ANXIETY, ALC_DIS, SLEEPHRS, SLEEP_TROUBLE, DOWN, WORRY, INTEREST, NERVOUS, MED_MH, JOB_WORKLOAD, COV_FINSIT, HOUSING_2, COV_MH, COV_STIMULUS, COV_MH, COV_MORTDEF_2, COV_MEDBILLS, COV_OTHERPAYMENT, COV_CREDITDEBT, COV_RENTMORT, COV_MONEYFOOD, COV_EXTUI, BEN_FAMLEAVE, BEN_PAIDSICK, BEN_PAIDVAC, BEN_HEALTHINS, BEN_RET, BEN_TUITION, BEN_CHILDCARE, BEN_HOUSING, PUB_EITC, RELIG_ATTEND, RELIG_IMP, EMP_1, EMP_2, LAIDOFF, DISABLED, STUDENT, UNEMP_LOOKING, UNEMP_NOTLOOK, RETIRED, MILITARY, COMBAT)
+
+# variable transformations
+data = data %>%
+  mutate_if(~is.numeric(.), as.factor) %>%
+  mutate_at(vars(DOWN, WORRY, INTEREST, NERVOUS, SAT1, SAT2, SAT3, SAT4, SAT5, AGE), as.numeric)
+
+data$SEX = factor(data$SEX, levels = c(1, 2, 3), labels = c("Male", "Female", "Other"))
+data$MARSTAT = factor(data$MARSTAT, levels = c(1, 2, 3,4,5,6,99), labels = c("Married", "Divorced", "Separated", "Widowed", "Single", "Unmarried couple", "Refusal"))
+data$COV_RENTMORT = factor(data$COV_RENTMORT, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+```
+### Frequency Table of Columns
+```{r}
+lapply(data, table)
+
+# get rid of variables with alot of missing values
+data = select(data, -JOB_MENTDEM, -MILITARY, -COMBAT, -UNEMP_LOOKING, -UNEMP_NOTLOOK, -PUB_EITC, -JOB_WORKLOAD, -BEN_HOUSING, -BEN_CHILDCARE, -BEN_TUITION, -BEN_RET, -BEN_HEALTHINS, -BEN_PAIDVAC, -BEN_PAIDSICK, -BEN_FAMLEAVE, -MED_MH)
+values_to_remove = c(96,98,99,100)
+data = data[!rowSums(sapply(data, function(x) x %in% values_to_remove)) > 0, ]
+```
