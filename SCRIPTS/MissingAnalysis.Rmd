@@ -11,14 +11,17 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE, highlight=FALSE,warning=FALSE)
 options(tinytex.verbose = TRUE)
 ```
+### Data Ingestion & Transformation
 ```{r}
 library(tidyverse)
+library(finalfit)
+
 ppdata = read.csv("surveydata.csv")
 
 # select variables of interest
-data = select(ppdata, AGE, SEX, HISPANIC, R_WHITE, R_BLACK, R_AIAN, R_API, R_OTHER, R_DK, RACEREC, EDUC, HAPPY, SAT1, SAT2, SAT3, SAT4, SAT5, INC_SS, INC_INV, INC_BUS, INC_HHEMP, INC_INFORMAL, INC_OWNEMP, INC_UI, INC_VA, INC_CHILDSUPP, INC_DIS, HEALTH_INS, MARSTAT, SEXUALITY, HH_PEOPLE, FINAL_WGT, MENT_HEALTH, JOB_MENTDEM, PTSD, DEPRESSION, ANXIETY, ALC_DIS, SLEEPHRS, SLEEP_TROUBLE, DOWN, WORRY, INTEREST, NERVOUS, MED_MH, JOB_WORKLOAD, COV_FINSIT, HOUSING_2, COV_MH, COV_STIMULUS, COV_MH, COV_MORTDEF_2, COV_MEDBILLS, COV_OTHERPAYMENT, COV_CREDITDEBT, COV_RENTMORT, COV_MONEYFOOD, COV_EXTUI, BEN_FAMLEAVE, BEN_PAIDSICK, BEN_PAIDVAC, BEN_HEALTHINS, BEN_RET, BEN_TUITION, BEN_CHILDCARE, BEN_HOUSING, PUB_EITC, RELIG_ATTEND, RELIG_IMP, EMP_1, EMP_2, LAIDOFF, DISABLED, STUDENT, UNEMP_LOOKING, UNEMP_NOTLOOK, RETIRED, MILITARY, COMBAT)
+data = select(ppdata, RACEREC, HOUSING_2, DRUG_DIS, RUCC, ALC_DIS, SEX, PHYS_HEALTH, EDUC, MILITARY, SLEEPHRS, MARSTAT, AGE, HHINC, MENT_HEALTH, EMP_1, EMP_2, STUDENT, COV_EXTUI, COV_STIMULUS, COV_RENTMORT, COV_OTHERPAYMENT, COV_MEDBILLS, COV_MONEYFOOD, COV_CREDITDEBT, SAT1, SAT2, SAT3, SAT4, SAT5, DOWN, WORRY, INTEREST, NERVOUS, FINAL_WGT)
 
-# variable transformations
+# data type validation
 data = data %>%
   mutate_if(~is.numeric(.), as.factor) %>%
   mutate_at(vars(DOWN, WORRY, INTEREST, NERVOUS, SAT1, SAT2, SAT3, SAT4, SAT5, AGE), as.numeric)
@@ -26,13 +29,32 @@ data = data %>%
 data$SEX = factor(data$SEX, levels = c(1, 2, 3), labels = c("Male", "Female", "Other"))
 data$MARSTAT = factor(data$MARSTAT, levels = c(1, 2, 3,4,5,6,99), labels = c("Married", "Divorced", "Separated", "Widowed", "Single", "Unmarried couple", "Refusal"))
 data$COV_RENTMORT = factor(data$COV_RENTMORT, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+
+# SAT variable creation
+data = data %>% mutate(SAT_total = ifelse(rowSums(select(., SAT1:SAT5) == 99, na.rm = TRUE) > 0, NA, rowSums(select(., SAT1:SAT5), na.rm = TRUE)))
+
+# PHQ variable creation
+data = data %>% mutate(across(c(DOWN, WORRY, INTEREST, NERVOUS), ~ ifelse(. %in% c(98,99), NA, .)))
+data = data %>% mutate(PHQ = rowSums(select(., DOWN, WORRY, INTEREST, NERVOUS), na.rm = TRUE))
+
+# EMPLOYMENT variable creation
+data = data %>% mutate(EMP = factor(paste(EMP_1, EMP_2, STUDENT, sep = "_"), levels = c("0_0_0", "0_0_1", "0_1_0", "0_1_1", "1_0_0", "1_0_1", "1_1_1"), labels = c("None", "Student Only", "EmployedMultiple Only", "EmployedMultiple and Student", "EmployedSingle Only", "EmployedSingle and Student", "All")))
+
+# COVID rentmort + other variable creation
+data = data %>% mutate(COV_MISSPAY = if_else(COV_RENTMORT == 1 | COV_OTHERPAYMENT == 1, 1, 0))
 ```
-### Frequency Table of Columns
+### Missing Data Patterns
 ```{r}
 lapply(data, table)
 
-# get rid of variables with alot of missing values
-data = select(data, -JOB_MENTDEM, -MILITARY, -COMBAT, -UNEMP_LOOKING, -UNEMP_NOTLOOK, -PUB_EITC, -JOB_WORKLOAD, -BEN_HOUSING, -BEN_CHILDCARE, -BEN_TUITION, -BEN_RET, -BEN_HEALTHINS, -BEN_PAIDVAC, -BEN_PAIDSICK, -BEN_FAMLEAVE, -MED_MH)
-values_to_remove = c(96,98,99,100)
-data = data[!rowSums(sapply(data, function(x) x %in% values_to_remove)) > 0, ]
+# convert all non response or refusal to NA
+data = data %>% mutate(across(everything(), ~replace(., . %in% c(96, 98, 99, 100), NA)))
+
+explanatory = c("AGE", "SEX", "RACEREC", "EDUC", "HOUSING", "MARSTAT", "SEXUALITY", "HH_PEOPLE", "FINAL_WGT", "MENT_HEALTH", "PTSD", "DEPRESSION", "ANXIETY", "ALC_DIS", "SLEEPHRS", "SLEEP_TROUBLE", "JOB_WORKLOAD", "COV_FINSIT", "HOUSING_2", "COV_MH", "COV_STIMULUS", "COV_MEDBILLS", "COV_OTHERPAYMENT", "COV_CREDITDEBT", "COV_RENTMORT", "COV_MONEYFOOD", "COV_EXTUI", "RELIG_IMP", "EMP_1", "EMP_2", "LAIDOFF", "DISABLED", "STUDENT", "RETIRED")
+response = c("SAT_total", "worry_total")
+
+data %>% missing_plot()
+
+data %>% missing_pattern(response, explanatory)
 ```
+### 
