@@ -21,14 +21,23 @@ ppdata = read.csv("surveydata.csv")
 # select variables of interest
 data = select(ppdata, RACEREC, HOUSING_2, DRUG_DIS, RUCC, ALC_DIS, SEX, PHYS_HEALTH, EDUC, MILITARY, SLEEPHRS, MARSTAT, AGE, HHINC, MENT_HEALTH, EMP_1, EMP_2, STUDENT, COV_EXTUI, COV_STIMULUS, COV_RENTMORT, COV_OTHERPAYMENT, COV_MEDBILLS, COV_MONEYFOOD, COV_CREDITDEBT, SAT1, SAT2, SAT3, SAT4, SAT5, DOWN, WORRY, INTEREST, NERVOUS, FINAL_WGT)
 
-# data type validation
+# data type and level validation
 data = data %>%
   mutate_if(~is.numeric(.), as.factor) %>%
   mutate_at(vars(DOWN, WORRY, INTEREST, NERVOUS, SAT1, SAT2, SAT3, SAT4, SAT5, AGE), as.numeric)
 
 data$SEX = factor(data$SEX, levels = c(1, 2, 3), labels = c("Male", "Female", "Other"))
 data$MARSTAT = factor(data$MARSTAT, levels = c(1, 2, 3,4,5,6,99), labels = c("Married", "Divorced", "Separated", "Widowed", "Single", "Unmarried couple", "Refusal"))
+
 data$COV_RENTMORT = factor(data$COV_RENTMORT, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+data$RACEREC = factor(data$RACEREC, levels = c(1,2,3,4,5,6,98))
+data$DRUG_DIS = factor(data$DRUG_DIS, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
+data$RUCC = factor(data$RUCC, levels = c(1,2,3,4,5,6,7,8,9))
+data$ALC_DIS = factor(data$ALC_DIS, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
+data$PHYS_HEALTH = factor(data$PHYS_HEALTH, levels = c(1,2,3,4,5), labels = c("Excellent", "Very Good", "Good", "Fair", "Poor"))
+data$EDUC = factor(data$EDUC, levels = c(1,2,3,4,5,6))
+data$MILITARY = factor(data$MILITARY, levels = c(1,2,3,4,99), labels = c("Never", "Current", "Past", "Training", "Refusal"))
+data$HHINC = factor(data$HHINC, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,98), labels = c("Yes", "No", "Don't Know", "Refusal"))
 
 # SAT variable creation
 data = data %>% mutate(SAT_total = ifelse(rowSums(select(., SAT1:SAT5) == 99, na.rm = TRUE) > 0, NA, rowSums(select(., SAT1:SAT5), na.rm = TRUE)))
@@ -42,19 +51,23 @@ data = data %>% mutate(EMP = factor(paste(EMP_1, EMP_2, STUDENT, sep = "_"), lev
 
 # COVID rentmort + other variable creation
 data = data %>% mutate(COV_MISSPAY = if_else(COV_RENTMORT == 1 | COV_OTHERPAYMENT == 1, 1, 0))
+
+# affirm data types again on new variables
+data$SAT_total = factor(data$SAT_total)
+data$PHQ = factor(data$PHQ)
 ```
 ### Missing Data Patterns
 ```{r}
 lapply(data, table)
 
-# convert all non response or refusal to NA
-data = data %>% mutate(across(everything(), ~replace(., . %in% c(96, 98, 99, 100), NA)))
-
-explanatory = c("AGE", "SEX", "RACEREC", "EDUC", "HOUSING", "MARSTAT", "SEXUALITY", "HH_PEOPLE", "FINAL_WGT", "MENT_HEALTH", "PTSD", "DEPRESSION", "ANXIETY", "ALC_DIS", "SLEEPHRS", "SLEEP_TROUBLE", "JOB_WORKLOAD", "COV_FINSIT", "HOUSING_2", "COV_MH", "COV_STIMULUS", "COV_MEDBILLS", "COV_OTHERPAYMENT", "COV_CREDITDEBT", "COV_RENTMORT", "COV_MONEYFOOD", "COV_EXTUI", "RELIG_IMP", "EMP_1", "EMP_2", "LAIDOFF", "DISABLED", "STUDENT", "RETIRED")
-response = c("SAT_total", "worry_total")
+explanatory = c("AGE", "HHINC", "SEX", "RACEREC", "EDUC", "MARSTAT", "MENT_HEALTH", "ALC_DIS", "HOUSING_2", "COV_STIMULUS", "COV_MEDBILLS", "COV_CREDITDEBT", "COV_MISSPAY", "COV_MONEYFOOD", "COV_EXTUI", "EMP")
+response = c("SAT_total", "PHQ")
 
 data %>% missing_plot()
 
-data %>% missing_pattern(response, explanatory)
+data %>% missing_pairs(response, num_explanatory)
+p = data %>% missing_pairs(response, explanatory, position = "fill", )
+
+ggsave("missingpairsplot.png", plot = p, width = 30, height = 20)
 ```
 ### 
