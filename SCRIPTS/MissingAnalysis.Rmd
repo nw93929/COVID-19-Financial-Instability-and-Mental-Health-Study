@@ -37,7 +37,14 @@ data$ALC_DIS = factor(data$ALC_DIS, levels = c(1,2,98,99), labels = c("Yes", "No
 data$PHYS_HEALTH = factor(data$PHYS_HEALTH, levels = c(1,2,3,4,5), labels = c("Excellent", "Very Good", "Good", "Fair", "Poor"))
 data$EDUC = factor(data$EDUC, levels = c(1,2,3,4,5,6))
 data$MILITARY = factor(data$MILITARY, levels = c(1,2,3,4,99), labels = c("Never", "Current", "Past", "Training", "Refusal"))
-data$HHINC = factor(data$HHINC, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,98), labels = c("Yes", "No", "Don't Know", "Refusal"))
+data$HHINC = factor(data$HHINC, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,98))
+data$COV_EXTUI = factor(data$COV_EXTUI, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+data$COV_STIMULUS = factor(data$COV_STIMULUS, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+data$COV_OTHERPAYMENT = factor(data$COV_OTHERPAYMENT, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+data$COV_MEDBILLS = factor(data$COV_MEDBILLS, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+data$COV_MONEYFOOD = factor(data$COV_MONEYFOOD, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+data$COV_CREDITDEBT = factor(data$COV_CREDITDEBT, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
+data$DRUG_DIS = factor(data$DRUG_DIS, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
 
 # SAT variable creation
 data = data %>% mutate(SAT_total = ifelse(rowSums(select(., SAT1:SAT5) == 99, na.rm = TRUE) > 0, NA, rowSums(select(., SAT1:SAT5), na.rm = TRUE)))
@@ -47,7 +54,7 @@ data = data %>% mutate(across(c(DOWN, WORRY, INTEREST, NERVOUS), ~ ifelse(. %in%
 data = data %>% mutate(PHQ = rowSums(select(., DOWN, WORRY, INTEREST, NERVOUS), na.rm = TRUE))
 
 # EMPLOYMENT variable creation
-data = data %>% mutate(EMP = factor(paste(EMP_1, EMP_2, STUDENT, sep = "_"), levels = c("0_0_0", "0_0_1", "0_1_0", "0_1_1", "1_0_0", "1_0_1", "1_1_1"), labels = c("None", "Student Only", "EmployedMultiple Only", "EmployedMultiple and Student", "EmployedSingle Only", "EmployedSingle and Student", "All")))
+data = data %>% mutate(EMP = factor(paste(EMP_1, EMP_2, STUDENT, sep = "_"), levels = c("0_0_0", "0_0_1", "0_1_0", "0_1_1", "1_0_0", "1_0_1", "1_1_1"), labels = c("None", "Student", "EmployedMultiple", "EmployedMultiple and Student", "EmployedSingle", "EmployedSingle and Student", "All")))
 
 # COVID rentmort + other variable creation
 data = data %>% mutate(COV_MISSPAY = if_else(COV_RENTMORT == 1 | COV_OTHERPAYMENT == 1, 1, 0))
