@@ -1,0 +1,186 @@
+---
+title: "Missing Data Analysis" 
+author: "Nathan Wan"
+fontsize: 12pt
+geometry: margin=1in
+urlcolor: black
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, highlight=FALSE,warning=FALSE)
+options(tinytex.verbose = TRUE)
+```
+### Data Ingestion & Transformation
+```{r}
+library(tidyverse)
+library(finalfit)
+
+#ppdata = read.csv("surveydata.csv")
+data <- da38964.0001
+data2 <- da38964.0001
+# select variables of interest
+data = select(data, RACEREC, HOUSING_2, DRUG_DIS, RUCC, ALC_DIS, SEX, PHYS_HEALTH, EDUC, MILITARY, SLEEPHRS, MARSTAT, AGE, HHINC, MENT_HEALTH, EMP_1, EMP_2, STUDENT, COV_EXTUI, COV_STIMULUS, COV_RENTMORT, COV_OTHERPAYMENT, COV_MEDBILLS, COV_MONEYFOOD, COV_CREDITDEBT, SAT1, SAT2, SAT3, SAT4, SAT5, DOWN, WORRY, INTEREST, NERVOUS, FINAL_WGT)
+
+# data type and level validation
+data = data %>%
+  mutate_if(~is.numeric(.), as.factor) %>%
+  mutate_at(vars(DOWN, WORRY, INTEREST, NERVOUS, SAT1, SAT2, SAT3, SAT4, SAT5, AGE), as.numeric)
+
+data$SEX = factor(data$SEX, levels = c(1, 2, 3), labels = c("Male", "Female", "Other"))
+data$MARSTAT = factor(data$MARSTAT, levels = c(1, 2, 3,4,5,6,99), labels = c("Married", "Divorced", "Separated", "Widowed", "Single", "Unmarried couple", "Refusal"))
+
+
+data$COV_EXTUI <- recode(data$COV_EXTUI,
+                         "(01) Yes" = "Yes",
+                         "(02) No" = "No",
+                         "(99) Refusal" = "Refusal")
+data$COV_RENTMORT <- recode(data$COV_RENTMORT,
+                         "(01) Yes" = "Yes",
+                         "(02) No" = "No",
+                         "(99) Refusal" = "Refusal")
+data$COV_STIMULUS<- recode(data$COV_STIMULUS,
+                         "(01) Yes" = "Yes",
+                         "(02) No" = "No",
+                         "(99) Refusal" = "Refusal")
+data$COV_OTHERPAYMENT <- recode(data$COV_OTHERPAYMENT,
+                         "(01) Yes" = "Yes",
+                         "(02) No" = "No",
+                         "(99) Refusal" = "Refusal")
+data$COV_MEDBILLS<- recode(data$COV_MEDBILLS,
+                         "(01) Yes" = "Yes",
+                         "(02) No" = "No",
+                         "(99) Refusal" = "Refusal")
+data$COV_MONEYFOOD<- recode(data$COV_MONEYFOOD,
+                         "(01) Yes" = "Yes",
+                         "(02) No" = "No",
+                         "(99) Refusal" = "Refusal")
+data$COV_CREDITDEBT<- recode(data$COV_CREDITDEBT,
+                         "(01) Yes" = "Yes",
+                         "(02) No" = "No",
+                         "(99) Refusal" = "Refusal")
+#data$COV_RENTMORT = factor(data$COV_RENTMORT, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+data$RACEREC = factor(data$RACEREC, levels = c(1,2,3,4,5,6,98))
+data$DRUG_DIS = factor(data$DRUG_DIS, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
+data$RUCC = factor(data$RUCC, levels = c(1,2,3,4,5,6,7,8,9))
+data$ALC_DIS = factor(data$ALC_DIS, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
+data$PHYS_HEALTH = factor(data$PHYS_HEALTH, levels = c(1,2,3,4,5), labels = c("Excellent", "Very Good", "Good", "Fair", "Poor"))
+data$EDUC = factor(data$EDUC, levels = c(1,2,3,4,5,6))
+data$MILITARY = factor(data$MILITARY, levels = c(1,2,3,4,99), labels = c("Never", "Current", "Past", "Training", "Refusal"))
+data$HHINC = factor(data$HHINC, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,98))
+#data$COV_EXTUI = factor(data$COV_EXTUI, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+#data$COV_STIMULUS = factor(data$COV_STIMULUS, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+#data$COV_OTHERPAYMENT = factor(data$COV_OTHERPAYMENT, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+#data$COV_MEDBILLS = factor(data$COV_MEDBILLS, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+#data$COV_MONEYFOOD = factor(data$COV_MONEYFOOD, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+#data$COV_CREDITDEBT = factor(data$COV_CREDITDEBT, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
+data$DRUG_DIS = factor(data$DRUG_DIS, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+
+###
+# Convert SAT variables to numeric (1-5) and NA for "Don't Know" and "Refusal"
+## Convert four worry variables
+data <- data %>% 
+  mutate(across(SAT1:SAT5, ~ case_when(
+    . %in% 1:5 ~ as.numeric(.),
+    . %in% c(6, 7, 98, 99) ~ NA_real_,
+    TRUE ~ NA_real_
+  )))
+data <- data %>% 
+  mutate(across(c(WORRY, DOWN, INTEREST, NERVOUS), ~ case_when(
+    . %in% 1:4 ~ as.numeric(.),
+    . %in% c(5,6, 98, 99) ~ NA_real_,
+    TRUE ~ NA_real_
+  )))
+# turn the worry variables scale into PHQ4 corresponding scale
+data <- data %>%
+  mutate(across(c(DOWN, WORRY, INTEREST, NERVOUS), ~ case_when(
+    . == 1 ~ 0,
+    . == 2 ~ 1,
+    . == 3 ~ 2,
+    . == 4 ~ 3,
+    TRUE ~ NA_real_ # Keep any unexpected values as NA
+  )))
+###
+
+# SAT variable creation
+data = data %>% mutate(SAT_total = ifelse(rowSums(select(., SAT1:SAT5) == 99, na.rm = TRUE) > 0, NA, rowSums(select(., SAT1:SAT5), na.rm = TRUE)))
+
+# PHQ variable creation
+data = data %>% mutate(across(c(DOWN, WORRY, INTEREST, NERVOUS), ~ ifelse(. %in% c(98,99), NA, .)))
+data = data %>% mutate(PHQ = rowSums(select(., DOWN, WORRY, INTEREST, NERVOUS), na.rm = TRUE))
+
+# EMPLOYMENT variable creation
+data = data %>% mutate(EMP = factor(paste(EMP_1, EMP_2, STUDENT, sep = "_"), levels = c("0_0_0", "0_0_1", "0_1_0", "0_1_1", "1_0_0", "1_0_1", "1_1_1"), labels = c("None", "Student", "EmployedMultiple", "EmployedMultiple and Student", "EmployedSingle", "EmployedSingle and Student", "All")))
+
+# COVID rentmort + other variable creation
+data = data %>% mutate(COV_MISSPAY = if_else(COV_RENTMORT == "Yes" | COV_OTHERPAYMENT == "Yes", "Yes", "No"))
+data$COV_MISSPAY <- factor(data$COV_MISSPAY)
+
+# affirm data types again on new variables
+#data$SAT_total = factor(data$SAT_total)
+#data$PHQ = factor(data$PHQ)
+```
+### Missing Data Patterns
+```{r}
+lapply(data, table)
+
+explanatory = c("AGE", "HHINC", "SEX", "RACEREC", "EDUC", "MARSTAT", "MENT_HEALTH", "ALC_DIS", "HOUSING_2", "COV_STIMULUS", "COV_MEDBILLS", "COV_CREDITDEBT", "COV_MISSPAY", "COV_MONEYFOOD", "COV_EXTUI", "EMP")
+response = c("SAT_total", "PHQ")
+num_explanatory <- length(explanatory)
+data %>% missing_plot()
+
+data %>% missing_pairs(response, num_explanatory)
+p = data %>% missing_pairs(response, explanatory, position = "fill", )
+
+ggsave("missingpairsplot.png", plot = p, width = 30, height = 20)
+```
+# logistic regression
+
+## for the categorical response logistic regression
+```{r}
+# turn PHQ into four levels:
+# Categorize PHQ variable
+data <- data %>%
+  mutate(PHQ_category = case_when(
+    PHQ >= 0 & PHQ <= 2  ~ "Normal",
+    PHQ >= 3 & PHQ <= 5  ~ "Mild",
+    PHQ >= 6 & PHQ <= 8  ~ "Moderate",
+    PHQ >= 9 & PHQ <= 12 ~ "Severe",
+    TRUE ~ NA_character_ # Handle any unexpected values as NA
+  ))
+```
+
+## checking assumptions for logistic regression
+```{r}
+library(MASS)
+data <- data %>%
+  mutate(PHQ_category = factor(PHQ_category, 
+                               levels = c("Normal", "Mild", "Moderate", "Severe"), 
+                               ordered = TRUE))
+binary_vars <- c("COV_EXTUI", "COV_STIMULUS", "COV_MISSPAY", 
+                 "COV_MEDBILLS", "COV_MONEYFOOD", "COV_CREDITDEBT")
+data_clean <- data %>%
+  filter(COV_EXTUI != "Refusal" & 
+         COV_STIMULUS != "Refusal" & 
+         COV_MISSPAY != "Refusal" & 
+         COV_MEDBILLS != "Refusal" & 
+         COV_MONEYFOOD != "Refusal" & 
+         COV_CREDITDEBT != "Refusal")
+
+##Ordered logistic regression
+
+##without the weights: it works
+m <- polr(PHQ_category ~COV_EXTUI + COV_STIMULUS+ COV_MISSPAY + COV_MEDBILLS + COV_MONEYFOOD + COV_CREDITDEBT , data = data, Hess=TRUE)
+library(dplyr)
+
+## with the weights:
+polr(PHQ_category ~ COV_EXTUI + COV_STIMULUS+ COV_MISSPAY + COV_MEDBILLS + COV_MONEYFOOD + COV_CREDITDEBT , data = data, weights = data$FINAL_WGT, method = "logistic", Hess = TRUE)
+
+#GLS (Gaussian model (i.e., linear regression).)
+library(rms)
+data$FINAL_WGT <- as.numeric(data$FINAL_WGT)
+glm(PHQ ~COV_EXTUI + COV_STIMULUS+ COV_MISSPAY + COV_MEDBILLS + COV_MONEYFOOD + COV_CREDITDEBT, data = data,weights = data$FINAL_WGT)
+```
+
+
+
