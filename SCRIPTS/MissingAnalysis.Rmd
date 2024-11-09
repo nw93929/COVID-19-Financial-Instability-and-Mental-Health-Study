@@ -11,7 +11,6 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE, highlight=FALSE,warning=FALSE)
 options(tinytex.verbose = TRUE)
 ```
-### Data Ingestion & Transformation
 ```{r}
 library(tidyverse)
 library(finalfit)
@@ -19,62 +18,34 @@ library(finalfit)
 ppdata = read.csv("surveydata.csv")
 
 # select variables of interest
-data = select(ppdata, RACEREC, HOUSING_2, DRUG_DIS, RUCC, ALC_DIS, SEX, PHYS_HEALTH, EDUC, MILITARY, SLEEPHRS, MARSTAT, AGE, HHINC, MENT_HEALTH, EMP_1, EMP_2, STUDENT, COV_EXTUI, COV_STIMULUS, COV_RENTMORT, COV_OTHERPAYMENT, COV_MEDBILLS, COV_MONEYFOOD, COV_CREDITDEBT, SAT1, SAT2, SAT3, SAT4, SAT5, DOWN, WORRY, INTEREST, NERVOUS, FINAL_WGT)
+data = select(ppdata, AGE, SEX, RACEREC, EDUC, SAT1, SAT2, SAT3, SAT4, SAT5, HEALTH_INS, MARSTAT, SEXUALITY, HH_PEOPLE, FINAL_WGT, MENT_HEALTH, PTSD, DEPRESSION, ANXIETY, ALC_DIS, SLEEPHRS, SLEEP_TROUBLE, DOWN, WORRY, INTEREST, NERVOUS, JOB_WORKLOAD, COV_FINSIT, HOUSING_2, COV_MH, COV_STIMULUS, COV_MEDBILLS, COV_OTHERPAYMENT, COV_CREDITDEBT, COV_RENTMORT, COV_MONEYFOOD, COV_EXTUI, RELIG_IMP, EMP_1, EMP_2, LAIDOFF, DISABLED, STUDENT, RETIRED)
 
-# data type and level validation
+# data type validation
 data = data %>%
   mutate_if(~is.numeric(.), as.factor) %>%
   mutate_at(vars(DOWN, WORRY, INTEREST, NERVOUS, SAT1, SAT2, SAT3, SAT4, SAT5, AGE), as.numeric)
 
 data$SEX = factor(data$SEX, levels = c(1, 2, 3), labels = c("Male", "Female", "Other"))
 data$MARSTAT = factor(data$MARSTAT, levels = c(1, 2, 3,4,5,6,99), labels = c("Married", "Divorced", "Separated", "Widowed", "Single", "Unmarried couple", "Refusal"))
-
 data$COV_RENTMORT = factor(data$COV_RENTMORT, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
-data$RACEREC = factor(data$RACEREC, levels = c(1,2,3,4,5,6,98))
-data$DRUG_DIS = factor(data$DRUG_DIS, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
-data$RUCC = factor(data$RUCC, levels = c(1,2,3,4,5,6,7,8,9))
-data$ALC_DIS = factor(data$ALC_DIS, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
-data$PHYS_HEALTH = factor(data$PHYS_HEALTH, levels = c(1,2,3,4,5), labels = c("Excellent", "Very Good", "Good", "Fair", "Poor"))
-data$EDUC = factor(data$EDUC, levels = c(1,2,3,4,5,6))
-data$MILITARY = factor(data$MILITARY, levels = c(1,2,3,4,99), labels = c("Never", "Current", "Past", "Training", "Refusal"))
-data$HHINC = factor(data$HHINC, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,98))
-data$COV_EXTUI = factor(data$COV_EXTUI, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
-data$COV_STIMULUS = factor(data$COV_STIMULUS, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
-data$COV_OTHERPAYMENT = factor(data$COV_OTHERPAYMENT, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
-data$COV_MEDBILLS = factor(data$COV_MEDBILLS, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
-data$COV_MONEYFOOD = factor(data$COV_MONEYFOOD, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
-data$COV_CREDITDEBT = factor(data$COV_CREDITDEBT, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
-data$DRUG_DIS = factor(data$DRUG_DIS, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
 
 # SAT variable creation
 data = data %>% mutate(SAT_total = ifelse(rowSums(select(., SAT1:SAT5) == 99, na.rm = TRUE) > 0, NA, rowSums(select(., SAT1:SAT5), na.rm = TRUE)))
 
-# PHQ variable creation
+# WORRY variable creation
 data = data %>% mutate(across(c(DOWN, WORRY, INTEREST, NERVOUS), ~ ifelse(. %in% c(98,99), NA, .)))
-data = data %>% mutate(PHQ = rowSums(select(., DOWN, WORRY, INTEREST, NERVOUS), na.rm = TRUE))
-
-# EMPLOYMENT variable creation
-data = data %>% mutate(EMP = factor(paste(EMP_1, EMP_2, STUDENT, sep = "_"), levels = c("0_0_0", "0_0_1", "0_1_0", "0_1_1", "1_0_0", "1_0_1", "1_1_1"), labels = c("None", "Student", "EmployedMultiple", "EmployedMultiple and Student", "EmployedSingle", "EmployedSingle and Student", "All")))
-
-# COVID rentmort + other variable creation
-data = data %>% mutate(COV_MISSPAY = if_else(COV_RENTMORT == 1 | COV_OTHERPAYMENT == 1, 1, 0))
-
-# affirm data types again on new variables
-data$SAT_total = factor(data$SAT_total)
-data$PHQ = factor(data$PHQ)
+data = data %>% mutate(worry_total = rowSums(select(., DOWN, WORRY, INTEREST, NERVOUS), na.rm = TRUE))
 ```
-### Missing Data Patterns
+### Missing Data
 ```{r}
+# replace 96, 98, 99, 100 with NA
+data = data %>% mutate(across(everything(), ~na_if(., 96)))
 lapply(data, table)
 
-explanatory = c("AGE", "HHINC", "SEX", "RACEREC", "EDUC", "MARSTAT", "MENT_HEALTH", "ALC_DIS", "HOUSING_2", "COV_STIMULUS", "COV_MEDBILLS", "COV_CREDITDEBT", "COV_MISSPAY", "COV_MONEYFOOD", "COV_EXTUI", "EMP")
-response = c("SAT_total", "PHQ")
+explanatory = c("COV_FINSIT", "HOUSING_2", "COV_MH", "COV_STIMULUS", "COV_MEDBILLS", "COV_OTHERPAYMENT", "COV_CREDITDEBT", "COV_RENTMORT", "COV_MONEYFOOD", "COV_EXTUI")
+response = c("SAT_total", "worry_total")
 
 data %>% missing_plot()
 
-data %>% missing_pairs(response, num_explanatory)
-p = data %>% missing_pairs(response, explanatory, position = "fill", )
-
-ggsave("missingpairsplot.png", plot = p, width = 30, height = 20)
+data %>% missing_pattern(response, explanatory)
 ```
-### 
