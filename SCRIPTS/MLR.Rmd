@@ -1,0 +1,301 @@
+---
+title: "MLR Analysis w/ Life Satisfaction" 
+author: "Nathan Wan"
+fontsize: 12pt
+geometry: margin=1in
+urlcolor: black
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, highlight=FALSE,warning=FALSE)
+options(tinytex.verbose = TRUE)
+```
+
+## Data Ingestion & Transformation
+```{r}
+library(tidyverse)
+#library(finalfit)
+
+#ppdata = read.csv("surveydata.csv")
+load("/Users/ruoyunrosa/Desktop/STAT 4996/SurveyDF.rda")
+data <- da38964.0001
+data2 <- da38964.0001
+
+# extract numbers inside parentheses
+extract_number <- function(x) {
+  gsub("\\((\\d+)\\) .*", "\\1", x)
+}
+# apply the function to column 4-372
+data[, 4:372] <- lapply(data[, 4:372], extract_number)
+
+# convert character into integer
+data[, 4:372] <- lapply(data[, 4:372], function(x) as.integer(x))
+data[, 4:372] <- as.data.frame(data[, 4:372])
+
+# select variables of interest
+data = select(data, RACEREC, HOUSING_2, DRUG_DIS, RUCC, ALC_DIS, SEX, PHYS_HEALTH, EDUC, MILITARY, SLEEPHRS, MARSTAT, AGE, HHINC, MENT_HEALTH, EMP_1, EMP_2, STUDENT, COV_EXTUI, COV_STIMULUS, COV_RENTMORT, COV_OTHERPAYMENT, COV_MEDBILLS, COV_MONEYFOOD, COV_CREDITDEBT, SAT1, SAT2, SAT3, SAT4, SAT5, DOWN, WORRY, INTEREST, NERVOUS, FINAL_WGT)
+
+
+# data type and level validation
+data = data %>%
+  mutate_if(~is.numeric(.), as.factor) %>%
+  mutate_at(vars(DOWN, WORRY, INTEREST, NERVOUS, SAT1, SAT2, SAT3, SAT4, SAT5, AGE), as.numeric)
+
+data$SEX = factor(data$SEX, levels = c(1, 2, 3), labels = c("Male", "Female", "Other"))
+data$MARSTAT = factor(data$MARSTAT, levels = c(1, 2, 3,4,5,6,99), labels = c("Married", "Divorced", "Separated", "Widowed", "Single", "Unmarried couple", "Refusal"))
+
+
+cols_to_recode <- c("COV_RENTMORT", "COV_STIMULUS", "COV_OTHERPAYMENT", 
+                    "COV_MEDBILLS", "COV_MONEYFOOD", "COV_CREDITDEBT")
+
+# Recode values for all specified columns
+data <- data %>%
+  mutate(across(all_of(cols_to_recode), ~ recode(.,
+                                                 `1` = "Yes",
+                         `2` = "No",
+                         `99` = "Refusal")))
+
+
+data$RACEREC = factor(data$RACEREC, levels = c(1,2,3,4,5,6,98))
+data$DRUG_DIS = factor(data$DRUG_DIS, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
+data$RUCC = factor(data$RUCC, levels = c(1,2,3,4,5,6,7,8,9))
+data$ALC_DIS = factor(data$ALC_DIS, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
+data$PHYS_HEALTH = factor(data$PHYS_HEALTH, levels = c(1,2,3,4,5), labels = c("Excellent", "Very Good", "Good", "Fair", "Poor"))
+data$EDUC = factor(data$EDUC, levels = c(1,2,3,4,5,6))
+data$MILITARY = factor(data$MILITARY, levels = c(1,2,3,4,99), labels = c("Never", "Current", "Past", "Training", "Refusal"))
+data$HHINC = factor(data$HHINC, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,98))
+
+data <- data %>% 
+  mutate(across(SAT1:SAT5, ~ case_when(
+    . %in% 1:5 ~ as.numeric(.),
+    . %in% c(6, 7, 98, 99) ~ NA_real_,
+    TRUE ~ NA_real_
+  )))
+data <- data %>% 
+  mutate(across(c(WORRY, DOWN, INTEREST, NERVOUS), ~ case_when(
+    . %in% 1:4 ~ as.numeric(.),
+    . %in% c(5,6, 98, 99) ~ NA_real_,
+    TRUE ~ NA_real_
+  )))
+# turn the worry variables scale into PHQ4 corresponding scale
+data <- data %>%
+  mutate(across(c(DOWN, WORRY, INTEREST, NERVOUS), ~ case_when(
+    . == 1 ~ 0,
+    . == 2 ~ 1,
+    . == 3 ~ 2,
+    . == 4 ~ 3,
+    TRUE ~ NA_real_ # Keep any unexpected values as NA
+  )))
+###
+
+# SAT variable creation
+data = data %>% mutate(SAT_total = ifelse(rowSums(select(., SAT1:SAT5) == 99, na.rm = TRUE) > 0, NA, rowSums(select(., SAT1:SAT5), na.rm = TRUE)))
+
+# PHQ variable creation
+data = data %>% mutate(across(c(DOWN, WORRY, INTEREST, NERVOUS), ~ ifelse(. %in% c(98,99), NA, .)))
+data = data %>% mutate(PHQ = rowSums(select(., DOWN, WORRY, INTEREST, NERVOUS), na.rm = TRUE))
+
+# EMPLOYMENT variable creation
+data = data %>% mutate(EMP = factor(paste(EMP_1, EMP_2, STUDENT, sep = "_"), levels = c("0_0_0", "0_0_1", "0_1_0", "0_1_1", "1_0_0", "1_0_1", "1_1_1"), labels = c("None", "Student", "EmployedMultiple", "EmployedMultiple and Student", "EmployedSingle", "EmployedSingle and Student", "All")))
+
+# COVID rentmort + other variable creation
+data = data %>% mutate(COV_MISSPAY = if_else(COV_RENTMORT == "Yes" | COV_OTHERPAYMENT == "Yes", "Yes", "No"))
+data$COV_MISSPAY <- factor(data$COV_MISSPAY)
+
+data$SLEEPHRS<-as.numeric((data$SLEEPHRS))
+data$FINAL_WGT<-as.numeric((data$FINAL_WGT))
+```
+
+
+```{r}
+### Replace refusal, 98, 99, 100 with NA
+data[data == "Refusal" | data == 98 | data == 99 | data == 100 | data == 96] <- NA
+colSums(is.na(data))
+
+data <- na.omit(data)
+```
+
+
+```{r}
+# Remove unnecessary columns
+data$SAT1<-NULL
+data$SAT2<-NULL
+data$SAT3<-NULL
+data$SAT4<-NULL
+data$SAT5<-NULL
+data$DOWN<-NULL
+data$NERVOUS<-NULL
+data$INTEREST<-NULL
+data$WORRY<-NULL
+
+data$COV_RENTMORT<-NULL
+data$COV_OTHERPAYMENT<-NULL
+data$STUDENT<-NULL
+data$EMP_1<-NULL
+data$EMP_2<-NULL
+```
+
+
+## MLR w/ Life Satisfaction 
+
+Build demographic model → add financial variables and run partial f test
+Or demographic → forward backward → add all financial and run partial f test
+Significant → run forward backward with fixed demographic variables and check financial variables
+
+
+```{r}
+#library(GGally)
+library(dplyr)
+
+dataSat<-data
+dataSat$PHQ<-NULL
+
+data.no.wt <- dataSat %>% select(-FINAL_WGT)
+
+hist(data.no.wt$SAT_total)
+```
+
+
+## Checking MLR assumptions 
+
+Five main assumptions underlying multiple regression models must be satisfied: (1) linearity, (2) homoskedasticity, (3) independence of errors, (4) normality, and (5) independence of independent variables.
+
+```{r}
+result<-lm(SAT_total~., data=data.no.wt, weights = data$FINAL_WGT)
+par(mfrow=c(2,2))
+plot(result)
+```
+
+The first plot (top left) is the residual plot, with residuals on the y-axis and fitted values on the x-axis. The residual plot can be used to address assumptions 1 and 2. A red line is overlayed to represent the average value of the residuals for differing values along the x-axis. This line should be along the x-axis without any apparent curvature to indicate the form of our model is reasonable. This is generally the case for this regression. This addresses point 1. This is the most important assumption to check. For assumption 2, we want to see the vertical spread of the residuals to be fairly constant, which we have.
+
+The second plot (top right) is the normal probability plot (also called a QQ plot), and addresses assumption 4. If the residuals are normal, the residuals should fall along the 45 degree line. The regression model is fairly robust to this assumption though; the normality assumption is the least crucial of the four.
+
+The third plot (bottom left) is a plot of the square root of the standardized residuals against the fitted values (scale-location). This plot should be used to assess assumption 2, the constant variance assumption. If the variance is constant, the red line should be horizontal and the vertical spread of plot should be constant. This is generally the case for this regression.
+
+The last plot (bottom right) is a plot to identify influential outliers. Data points that lie in the contour lines with large Cook’s distance are influential. 
+
+Assumption 3, the independence of errors, is assessed by understanding the nature of the data. A by-product of this assumption is the the observed values of the response variable are independent. 
+
+### ACF
+
+```{r}
+# autocorrelation (ACF) plot for assumption 3
+acf(result$res, main="ACF Plot")
+```
+The correlations should be insignificant for all lags greater than 0. This is the case for this regression. The assumption 3 is met. 
+
+We don’t see evidence of assumptions being violated. From the residual plot, we see an even scatter of residuals across the horizontal axis, as well as fairly constant variance.
+
+Given that we have a number of predictors, we suspect that multicollinearity may be present.
+
+
+### Levene’s test for equality of variances
+With a categorical predictor, there is an additional assumption to check: that the variance of the response variable is equal across classes of the categorical predictor
+```{r}
+library(lawstat)
+lawstat::levene.test(data.no.wt$SAT_total,data$RACEREC)
+lawstat::levene.test(data.no.wt$SAT_total,data$SEX)
+lawstat::levene.test(data.no.wt$SAT_total,data$EDUC)
+lawstat::levene.test(data.no.wt$SAT_total,data$HOUSING_2)
+lawstat::levene.test(data.no.wt$SAT_total,data$MARSTAT)
+lawstat::levene.test(data.no.wt$SAT_total,data$EMP)
+```
+The null hypothesis is that the variance of the response variable is equal across all classes. 
+
+
+### VIFs for multicollinearity
+```{r}
+library(car)
+vif(result)
+```
+VIFs above 5 indicate a moderate degree of multicollinearity, while VIFs above 10 indicate a strong degree of multicollinearity.
+
+
+### ANOVA F test and individual t tests
+F test is significant. 
+```{r}
+summary(result)
+```
+
+## Model building
+
+### Start with demographic var
+Significant F test
+```{r}
+demo_vars <- c("SEX", "EDUC", "RACEREC", "EMP", "MARSTAT", "HOUSING_2", 
+               "RUCC", "PHYS_HEALTH", "HHINC", "MENT_HEALTH","AGE", 
+               "MILITARY","SLEEPHRS")
+cat_demo <- c("SEX", "EDUC", "RACEREC", "EMP", "MARSTAT", "HOUSING_2", 
+               "SLEEPHRS", "RUCC", "PHYS_HEALTH", "MILITARY", "HHINC")
+# Convert categorical variables to factors
+data.no.wt[cat_demo] <- lapply(data.no.wt[cat_demo], as.factor)
+
+# Create a model with only demographic variables
+demo_model <- lm(SAT_total ~ ., data = data.no.wt[, c("SAT_total", demo_vars)], weights = data$FINAL_WGT)
+summary(demo_model)
+```
+
+### Model comparison
+
+### Forward Selection on demographic variables
+```{r eval=FALSE, include=FALSE}
+# Backward selection
+##intercept only model
+regnull <- lm(SAT_total~1, data=data, weights = data$FINAL_WGT)
+##model with all predictors
+regfull <- lm(SAT_total ~ SEX + EDUC + RACEREC + EMP + MARSTAT + HOUSING_2 + 
+                 SLEEPHRS + RUCC + PHYS_HEALTH + MILITARY + HHINC + MENT_HEALTH + AGE, 
+                 data = data, weights = data$FINAL_WGT)
+
+backward_model<-step(regfull, scope=list(lower=regnull, upper=regfull), direction="backward")
+summary(backward_model)
+```
+
+```{r}
+# forward selection
+forward_model<-step(regnull, scope=list(lower=regnull, upper=regfull), direction="forward")
+summary(forward_model)
+```
+Forward and backward selection select the same sets of variables. We will continue with the model: SAT_total ~ SEX + EDUC + EMP + MARSTAT + HOUSING_2 + 
+    SLEEPHRS + PHYS_HEALTH + HHINC + MENT_HEALTH + AGE
+
+
+
+### Add Financial Variables
+
+```{r}
+fin_vars <- c("COV_EXTUI", "COV_STIMULUS", "MEDBILLS", "MONEYFOOD", "CREDITDEBIT") 
+demoFin_result <- lm(SAT_total~SEX + EDUC + EMP + MARSTAT + HOUSING_2 + 
+    SLEEPHRS + PHYS_HEALTH + HHINC + MENT_HEALTH + AGE + COV_EXTUI+COV_STIMULUS+COV_MEDBILLS+ COV_MONEYFOOD+COV_CREDITDEBT, data = data.no.wt, weights = data$FINAL_WGT)
+
+summary(demoFin_result)
+```
+
+### Partial F test for financial reduced model
+drop COV_STIMULUS, and  COV_MEDBILLS
+```{r}
+reducedFindemo <- lm(SAT_total~SEX + EDUC + EMP + MARSTAT + HOUSING_2 + 
+    SLEEPHRS + PHYS_HEALTH + HHINC + MENT_HEALTH + AGE + COV_MONEYFOOD+COV_CREDITDEBT, data = data.no.wt, weights = data$FINAL_WGT)
+
+anova(reducedFindemo, demoFin_result)
+```
+The p-value is greater than 0.05. So we fail to reject the null hypothesis, so there is little evidence of supporting the full model. We go with the reduced model over the full model.
+
+### Partial F test to compare demo model and Findemo model
+We reject the null hypothesis, so there is evidence of supporting the full model. We go with the model includes both demographic and financial variables. 
+
+```{r}
+anova(forward_model, reducedFindemo)
+```
+
+### Check assumptions of our final model
+
+```{r}
+par(mfrow=c(2,2))
+plot(reducedFindemo)
+```
+
+
+
+
