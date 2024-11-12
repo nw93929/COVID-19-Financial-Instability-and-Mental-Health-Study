@@ -16,11 +16,11 @@ options(tinytex.verbose = TRUE)
 library(tidyverse)
 library(finalfit)
 
-#ppdata = read.csv("surveydata.csv")
+# ppdata = read.csv("C:/Users/wanns/OneDrive/Desktop/Coding/R/4996 Capstone/surveydata.csv")
 data <- da38964.0001
 data2 <- da38964.0001
 # select variables of interest
-data = select(data, RACEREC, HOUSING_2, DRUG_DIS, RUCC, ALC_DIS, SEX, PHYS_HEALTH, EDUC, MILITARY, SLEEPHRS, MARSTAT, AGE, HHINC, MENT_HEALTH, EMP_1, EMP_2, STUDENT, COV_EXTUI, COV_STIMULUS, COV_RENTMORT, COV_OTHERPAYMENT, COV_MEDBILLS, COV_MONEYFOOD, COV_CREDITDEBT, SAT1, SAT2, SAT3, SAT4, SAT5, DOWN, WORRY, INTEREST, NERVOUS, FINAL_WGT)
+data = dplyr::select(data, RACEREC, HOUSING_2, DRUG_DIS, RUCC, ALC_DIS, SEX, PHYS_HEALTH, EDUC, MILITARY, SLEEPHRS, MARSTAT, AGE, HHINC, MENT_HEALTH, EMP_1, EMP_2, STUDENT, COV_EXTUI, COV_STIMULUS, COV_RENTMORT, COV_OTHERPAYMENT, COV_MEDBILLS, COV_MONEYFOOD, COV_CREDITDEBT, SAT1, SAT2, SAT3, SAT4, SAT5, DOWN, WORRY, INTEREST, NERVOUS, FINAL_WGT)
 
 # data type and level validation
 data = data %>%
@@ -59,22 +59,22 @@ data$COV_CREDITDEBT<- recode(data$COV_CREDITDEBT,
                          "(01) Yes" = "Yes",
                          "(02) No" = "No",
                          "(99) Refusal" = "Refusal")
-#data$COV_RENTMORT = factor(data$COV_RENTMORT, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
-data$RACEREC = factor(data$RACEREC, levels = c(1,2,3,4,5,6,98))
+data$COV_RENTMORT = factor(data$COV_RENTMORT, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+data$RACEREC = factor(data$RACEREC, levels = c(1,2,3,4,5,6,98), labels = c("Non-Hispanic White", "Non-Hispanic Black", "Non-Hispanic American Indian/Alaska
+Native", "Hispanic", "Non-Hispanic Asian or Pacific Islander", "Other and 2 or more races", "Don't Know"))
 data$DRUG_DIS = factor(data$DRUG_DIS, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
 data$RUCC = factor(data$RUCC, levels = c(1,2,3,4,5,6,7,8,9))
 data$ALC_DIS = factor(data$ALC_DIS, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
 data$PHYS_HEALTH = factor(data$PHYS_HEALTH, levels = c(1,2,3,4,5), labels = c("Excellent", "Very Good", "Good", "Fair", "Poor"))
 data$EDUC = factor(data$EDUC, levels = c(1,2,3,4,5,6))
 data$MILITARY = factor(data$MILITARY, levels = c(1,2,3,4,99), labels = c("Never", "Current", "Past", "Training", "Refusal"))
-data$HHINC = factor(data$HHINC, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,98))
-#data$COV_EXTUI = factor(data$COV_EXTUI, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
-#data$COV_STIMULUS = factor(data$COV_STIMULUS, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
-#data$COV_OTHERPAYMENT = factor(data$COV_OTHERPAYMENT, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
-#data$COV_MEDBILLS = factor(data$COV_MEDBILLS, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
-#data$COV_MONEYFOOD = factor(data$COV_MONEYFOOD, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
-#data$COV_CREDITDEBT = factor(data$COV_CREDITDEBT, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
-data$DRUG_DIS = factor(data$DRUG_DIS, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+data$HHINC = factor(data$HHINC, levels = c(1,2,3,4,5,6,7,8,9,10,11,12,98), labels = c("Under 10K", "10K up to 25K", "25K up to 40K", "40K up to 50K", "50K up to 60K", "60K up to 75K", "75K up to 85K", "85K up to 100K", "100K up to 125K", "125K up to 150K", "150K up to 200K", "200K+", "Don't Know"))
+data$COV_EXTUI = factor(data$COV_EXTUI, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+data$COV_STIMULUS = factor(data$COV_STIMULUS, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+data$COV_OTHERPAYMENT = factor(data$COV_OTHERPAYMENT, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+data$COV_MEDBILLS = factor(data$COV_MEDBILLS, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+data$COV_MONEYFOOD = factor(data$COV_MONEYFOOD, levels = c(1,2,99), labels = c("Yes", "No", "Refusal"))
+data$COV_CREDITDEBT = factor(data$COV_CREDITDEBT, levels = c(1,2,98,99), labels = c("Yes", "No", "Don't Know", "Refusal"))
 
 ###
 # Convert SAT variables to numeric (1-5) and NA for "Don't Know" and "Refusal"
@@ -103,14 +103,14 @@ data <- data %>%
 ###
 
 # SAT variable creation
-data = data %>% mutate(SAT_total = ifelse(rowSums(select(., SAT1:SAT5) == 99, na.rm = TRUE) > 0, NA, rowSums(select(., SAT1:SAT5), na.rm = TRUE)))
+data = data %>% mutate(SAT_total = ifelse(rowSums(dplyr::select(., SAT1:SAT5) == 99, na.rm = TRUE) > 0, NA, rowSums(dplyr::select(., SAT1:SAT5), na.rm = TRUE)))
 
 # PHQ variable creation
 data = data %>% mutate(across(c(DOWN, WORRY, INTEREST, NERVOUS), ~ ifelse(. %in% c(98,99), NA, .)))
-data = data %>% mutate(PHQ = rowSums(select(., DOWN, WORRY, INTEREST, NERVOUS), na.rm = TRUE))
+data = data %>% mutate(PHQ = rowSums(dplyr::select(., DOWN, WORRY, INTEREST, NERVOUS), na.rm = TRUE))
 
 # EMPLOYMENT variable creation
-data = data %>% mutate(EMP = factor(paste(EMP_1, EMP_2, STUDENT, sep = "_"), levels = c("0_0_0", "0_0_1", "0_1_0", "0_1_1", "1_0_0", "1_0_1", "1_1_1"), labels = c("None", "Student", "EmployedMultiple", "EmployedMultiple and Student", "EmployedSingle", "EmployedSingle and Student", "All")))
+data = data %>% mutate(EMP = factor(paste(EMP_1, EMP_2, STUDENT, sep = "_"), levels = c("0_0_0", "0_0_1", "0_1_0", "0_1_1", "1_0_0", "1_0_1"), labels = c("None", "Student", "EmployedMultiple", "EmployedMultiple and Student", "EmployedSingle", "EmployedSingle and Student")))
 
 # COVID rentmort + other variable creation
 data = data %>% mutate(COV_MISSPAY = if_else(COV_RENTMORT == "Yes" | COV_OTHERPAYMENT == "Yes", "Yes", "No"))
