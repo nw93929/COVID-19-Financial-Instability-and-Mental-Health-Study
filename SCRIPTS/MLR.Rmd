@@ -1,6 +1,6 @@
 ---
 title: "MLR Analysis w/ Life Satisfaction" 
-author: "Nathan Wan"
+author: "Ruoyun Li"
 fontsize: 12pt
 geometry: margin=1in
 urlcolor: black
@@ -140,6 +140,9 @@ data$EMP_2<-NULL
 ## MLR w/ Life Satisfaction 
 
 Build demographic model → add financial variables and run partial f test
+- motivation: demographic served as control. to see whether financial variables improve the model. 
+- forward selection 
+- variable selection: expert, literature review, 
 Or demographic → forward backward → add all financial and run partial f test
 Significant → run forward backward with fixed demographic variables and check financial variables
 
@@ -239,26 +242,28 @@ summary(demo_model)
 ### Model comparison
 
 ### Forward Selection on demographic variables
-```{r eval=FALSE, include=FALSE}
+```{r}
 # Backward selection
 ##intercept only model
-regnull <- lm(SAT_total~1, data=data, weights = data$FINAL_WGT)
+regnull <- lm(SAT_total~1, data=data.no.wt, weights = data$FINAL_WGT)
 ##model with all predictors
 regfull <- lm(SAT_total ~ SEX + EDUC + RACEREC + EMP + MARSTAT + HOUSING_2 + 
                  SLEEPHRS + RUCC + PHYS_HEALTH + MILITARY + HHINC + MENT_HEALTH + AGE, 
-                 data = data, weights = data$FINAL_WGT)
+                 data = data.no.wt, weights = data$FINAL_WGT)
 
 backward_model<-step(regfull, scope=list(lower=regnull, upper=regfull), direction="backward")
 summary(backward_model)
 ```
 
+
 ```{r}
+
 # forward selection
 forward_model<-step(regnull, scope=list(lower=regnull, upper=regfull), direction="forward")
 summary(forward_model)
 ```
-Forward and backward selection select the same sets of variables. We will continue with the model: SAT_total ~ SEX + EDUC + EMP + MARSTAT + HOUSING_2 + 
-    SLEEPHRS + PHYS_HEALTH + HHINC + MENT_HEALTH + AGE
+Forward and backward selection select the same sets of variables. We will continue with the model: SAT_total ~ MENT_HEALTH + PHYS_HEALTH + MARSTAT + HOUSING_2 +
+SEX + AGE + SLEEPHRS + HHINC + EDUC + EMP + MILITARY
 
 
 
@@ -266,8 +271,8 @@ Forward and backward selection select the same sets of variables. We will contin
 
 ```{r}
 fin_vars <- c("COV_EXTUI", "COV_STIMULUS", "MEDBILLS", "MONEYFOOD", "CREDITDEBIT") 
-demoFin_result <- lm(SAT_total~SEX + EDUC + EMP + MARSTAT + HOUSING_2 + 
-    SLEEPHRS + PHYS_HEALTH + HHINC + MENT_HEALTH + AGE + COV_EXTUI+COV_STIMULUS+COV_MEDBILLS+ COV_MONEYFOOD+COV_CREDITDEBT, data = data.no.wt, weights = data$FINAL_WGT)
+demoFin_result <- lm(SAT_total~MENT_HEALTH + PHYS_HEALTH + MARSTAT + HOUSING_2 +
+SEX + AGE + SLEEPHRS + HHINC + EDUC + EMP + MILITARY + COV_EXTUI+COV_STIMULUS+COV_MEDBILLS+ COV_MONEYFOOD+COV_CREDITDEBT, data = data.no.wt, weights = data$FINAL_WGT)
 
 summary(demoFin_result)
 ```
@@ -275,8 +280,8 @@ summary(demoFin_result)
 ### Partial F test for financial reduced model
 drop COV_STIMULUS, and  COV_MEDBILLS
 ```{r}
-reducedFindemo <- lm(SAT_total~SEX + EDUC + EMP + MARSTAT + HOUSING_2 + 
-    SLEEPHRS + PHYS_HEALTH + HHINC + MENT_HEALTH + AGE + COV_MONEYFOOD+COV_CREDITDEBT, data = data.no.wt, weights = data$FINAL_WGT)
+reducedFindemo <- lm(SAT_total~MENT_HEALTH + PHYS_HEALTH + MARSTAT + HOUSING_2 +
+SEX + AGE + SLEEPHRS + HHINC + EDUC + EMP + MILITARY + COV_MONEYFOOD+COV_CREDITDEBT+COV_EXTUI, data = data.no.wt, weights = data$FINAL_WGT)
 
 anova(reducedFindemo, demoFin_result)
 ```
@@ -288,6 +293,11 @@ We reject the null hypothesis, so there is evidence of supporting the full model
 ```{r}
 anova(forward_model, reducedFindemo)
 ```
+
+```{r}
+summary(reducedFindemo)
+```
+
 
 ### Check assumptions of our final model
 
