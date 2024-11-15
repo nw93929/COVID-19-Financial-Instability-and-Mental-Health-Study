@@ -1,17 +1,14 @@
 ## Load libraries and dataset
 library(tidyverse)
 library(dplyr)
-
-load("SurveyDF.rda")
+load("/Users/ruoyunrosa/Desktop/STAT 4996/SurveyDF.rda")
 data <- da38964.0001
-
 # extract numbers inside parentheses
 extract_number <- function(x) {
   gsub("\\((\\d+)\\) .*", "\\1", x)
 }
 # apply the function to column 4-372
 data[, 4:372] <- lapply(data[, 4:372], extract_number)
-
 # convert character into integer
 data[, 4:372] <- lapply(data[, 4:372], function(x) as.integer(x))
 data[, 4:372] <- as.data.frame(data[, 4:372])
@@ -34,7 +31,6 @@ data$MARSTAT = factor(data$MARSTAT, levels = c(1, 2, 3,4,5,6,99),
                       labels = c("Married", "Divorced", "Separated", 
                                  "Widowed", "Single", "Unmarried couple", 
                                   "Refusal"))
-
 
 cols_to_recode <- c("COV_RENTMORT", "COV_STIMULUS", "COV_OTHERPAYMENT", 
                     "COV_MEDBILLS", "COV_MONEYFOOD", "COV_CREDITDEBT",
@@ -107,7 +103,6 @@ data = data %>% mutate(EMP = factor(paste(EMP_1, EMP_2, STUDENT, sep = "_"),
 data = data %>% 
   mutate(COV_MISSPAY = if_else(COV_RENTMORT == "Yes" | COV_OTHERPAYMENT == "Yes", "Yes", "No"))
 data$COV_MISSPAY <- factor(data$COV_MISSPAY)
-
 data$SLEEPHRS<-as.numeric((data$SLEEPHRS))
 data$FINAL_WGT<-as.numeric((data$FINAL_WGT))
 
@@ -136,6 +131,25 @@ mca_data_clean <- mca_data_clean %>%
 str(mca_data_clean)
 all(sapply(mca_data_clean, is.factor))
 sapply(mca_data_clean, function(x) length(unique(x)))
+
+change_factor_levels <- function(data, vars) {
+  # Iterate over each specified variable
+  for (var in vars) {
+    if (var %in% colnames(data)) {
+      # Apply droplevels and filter out "Refusal"
+      data[[var]] <- droplevels(data[[var]][data[[var]] != "Refusal"])
+    } else {
+      warning(paste("Variable", var, "not found in the dataset."))
+    }
+  }
+  return(data)
+}
+variables_to_change <- c(
+  "COV_STIMULUS", "COV_MORTDEF_2", "COV_MEDBILLS", "COV_OTHERPAYMENT",
+  "COV_CREDITDEBT", "COV_RENTMORT", "COV_MONEYFOOD", "COV_EXTUI"
+)
+mca_data_clean <- change_factor_levels(mca_data_clean, variables_to_change)
+
 mca2 = mca(mca_data_clean, nf = 5)
 
 # eigenvalues
@@ -207,7 +221,9 @@ data$EMP_2<-NULL
 library(dplyr)
 dataSat<-data
 dataSat$PHQ<-NULL
-data.no.wt <- dataSat %>% select(-FINAL_WGT)
+
+data.no.wt <- dataSat[, !colnames(dataSat) %in% "FINAL_WGT"]
+
 
 hist(data.no.wt$SAT_total)
 
@@ -241,6 +257,12 @@ demo_model <- lm(SAT_total ~ ., data = data.no.wt[, c("SAT_total", demo_vars)], 
 summary(demo_model)
 
 ### Model comparison
+##intercept only model
+regnull <- lm(SAT_total~1, data=data.no.wt, weights = data$FINAL_WGT)
+##model with all predictors
+regfull <- lm(SAT_total ~ SEX + EDUC + RACEREC + EMP + MARSTAT + HOUSING_2 + 
+                SLEEPHRS + RUCC + PHYS_HEALTH + MILITARY + HHINC + MENT_HEALTH + AGE, 
+              data = data.no.wt, weights = data$FINAL_WGT)
 ### Forward Selection on demographic variables
 forward_model<-step(regnull, scope=list(lower=regnull, upper=regfull), direction="forward")
 summary(forward_model)
@@ -266,7 +288,6 @@ anova(reducedFindemo, demoFin_result)
 
 ### Partial F test to compare demo model and Findemo model
 anova(forward_model, reducedFindemo)
-
 ### Check assumptions of our final model
 par(mfrow=c(2,2))
 plot(reducedFindemo)
