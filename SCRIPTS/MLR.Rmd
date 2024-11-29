@@ -20,7 +20,7 @@ library(tidyverse)
 #ppdata = read.csv("surveydata.csv")
 load("/Users/ruoyunrosa/Desktop/STAT 4996/SurveyDF.rda")
 data <- da38964.0001
-data2 <- da38964.0001
+
 
 # extract numbers inside parentheses
 extract_number <- function(x) {
@@ -39,8 +39,8 @@ data = select(data, RACEREC, HOUSING_2, DRUG_DIS, RUCC, ALC_DIS, SEX, PHYS_HEALT
 
 # data type and level validation
 data = data %>%
-  mutate_if(~is.numeric(.), as.factor) %>%
-  mutate_at(vars(DOWN, WORRY, INTEREST, NERVOUS, SAT1, SAT2, SAT3, SAT4, SAT5, AGE), as.numeric)
+  mutate_at(vars(RACEREC, HOUSING_2, DRUG_DIS, RUCC, ALC_DIS, SEX, PHYS_HEALTH, EDUC, MILITARY, SLEEPHRS, MARSTAT, AGE, HHINC, MENT_HEALTH, EMP_1, EMP_2, STUDENT, COV_EXTUI, COV_STIMULUS, COV_RENTMORT, COV_OTHERPAYMENT, COV_MEDBILLS, COV_MONEYFOOD, COV_CREDITDEBT), as.factor) %>%
+  mutate_at(vars(DOWN, WORRY, INTEREST, NERVOUS, SAT1, SAT2, SAT3, SAT4, SAT5, AGE, FINAL_WGT), as.numeric)
 
 data$SEX = factor(data$SEX, levels = c(1, 2, 3), labels = c("Male", "Female", "Other"))
 data$MARSTAT = factor(data$MARSTAT, levels = c(1, 2, 3,4,5,6,99), labels = c("Married", "Divorced", "Separated", "Widowed", "Single", "Unmarried couple", "Refusal"))
@@ -162,7 +162,7 @@ hist(data.no.wt$SAT_total)
 
 ## Checking MLR assumptions 
 
-Five main assumptions underlying multiple regression models must be satisfied: (1) linearity, (2) homoskedasticity, (3) independence of errors, (4) normality, and (5) independence of independent variables.
+Five main assumptions underlying multiple regression models must be satisfied: (1) linearity, (2) homoscedasticity, (3) independence of errors, (4) normality, and (5) independence of independent variables.
 
 ```{r}
 result<-lm(SAT_total~., data=data.no.wt, weights = data$FINAL_WGT)
@@ -193,20 +193,6 @@ We don’t see evidence of assumptions being violated. From the residual plot, w
 Given that we have a number of predictors, we suspect that multicollinearity may be present.
 
 
-### Levene’s test for equality of variances
-With a categorical predictor, there is an additional assumption to check: that the variance of the response variable is equal across classes of the categorical predictor
-```{r}
-library(lawstat)
-lawstat::levene.test(data.no.wt$SAT_total,data$RACEREC)
-lawstat::levene.test(data.no.wt$SAT_total,data$SEX)
-lawstat::levene.test(data.no.wt$SAT_total,data$EDUC)
-lawstat::levene.test(data.no.wt$SAT_total,data$HOUSING_2)
-lawstat::levene.test(data.no.wt$SAT_total,data$MARSTAT)
-lawstat::levene.test(data.no.wt$SAT_total,data$EMP)
-```
-The null hypothesis is that the variance of the response variable is equal across all classes. 
-
-
 ### VIFs for multicollinearity
 ```{r}
 library(car)
@@ -230,7 +216,7 @@ demo_vars <- c("SEX", "EDUC", "RACEREC", "EMP", "MARSTAT", "HOUSING_2",
                "RUCC", "PHYS_HEALTH", "HHINC", "MENT_HEALTH","AGE", 
                "MILITARY","SLEEPHRS")
 cat_demo <- c("SEX", "EDUC", "RACEREC", "EMP", "MARSTAT", "HOUSING_2", 
-               "SLEEPHRS", "RUCC", "PHYS_HEALTH", "MILITARY", "HHINC")
+               "RUCC", "PHYS_HEALTH", "MILITARY", "HHINC")
 # Convert categorical variables to factors
 data.no.wt[cat_demo] <- lapply(data.no.wt[cat_demo], as.factor)
 
@@ -262,26 +248,26 @@ summary(backward_model)
 forward_model<-step(regnull, scope=list(lower=regnull, upper=regfull), direction="forward")
 summary(forward_model)
 ```
-Forward and backward selection select the same sets of variables. We will continue with the model: SAT_total ~ MENT_HEALTH + PHYS_HEALTH + MARSTAT + HOUSING_2 +
-SEX + AGE + SLEEPHRS + HHINC + EDUC + EMP + MILITARY
+Forward and backward selection select the same sets of variables. We will continue with the model: SAT_total ~ SEX + EMP + MARSTAT + HOUSING_2 + PHYS_HEALTH + 
+    HHINC + MENT_HEALTH + AGE
 
 
 
 ### Add Financial Variables
 
 ```{r}
-fin_vars <- c("COV_EXTUI", "COV_STIMULUS", "MEDBILLS", "MONEYFOOD", "CREDITDEBIT") 
-demoFin_result <- lm(SAT_total~MENT_HEALTH + PHYS_HEALTH + MARSTAT + HOUSING_2 +
-SEX + AGE + SLEEPHRS + HHINC + EDUC + EMP + MILITARY + COV_EXTUI+COV_STIMULUS+COV_MEDBILLS+ COV_MONEYFOOD+COV_CREDITDEBT, data = data.no.wt, weights = data$FINAL_WGT)
+fin_vars <- c("COV_EXTUI", "COV_STIMULUS", "COV_MEDBILLS", "MONEYFOOD", "CREDITDEBIT") 
+demoFin_result <- lm(SAT_total~SEX + EMP + MARSTAT + HOUSING_2 + PHYS_HEALTH + 
+    HHINC + MENT_HEALTH + AGE+ COV_EXTUI+COV_STIMULUS+COV_MEDBILLS+ COV_MONEYFOOD+COV_CREDITDEBT, data = data.no.wt, weights = data$FINAL_WGT)
 
 summary(demoFin_result)
 ```
 
 ### Partial F test for financial reduced model
-drop COV_STIMULUS, and  COV_MEDBILLS
+drop COV_STIMULUS, COV_EXTUI and  COV_MEDBILLS
 ```{r}
-reducedFindemo <- lm(SAT_total~MENT_HEALTH + PHYS_HEALTH + MARSTAT + HOUSING_2 +
-SEX + AGE + SLEEPHRS + HHINC + EDUC + EMP + MILITARY + COV_MONEYFOOD+COV_CREDITDEBT+COV_EXTUI, data = data.no.wt, weights = data$FINAL_WGT)
+reducedFindemo <- lm(SAT_total~MENT_HEALTH + PHYS_HEALTH + MARSTAT + 
+    HOUSING_2 + SEX + AGE + HHINC + SLEEPHRS + EDUC + EMP + COV_MONEYFOOD+COV_CREDITDEBT+COV_STIMULUS, data = data.no.wt, weights = data$FINAL_WGT)
 
 anova(reducedFindemo, demoFin_result)
 ```
