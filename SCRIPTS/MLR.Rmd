@@ -292,6 +292,79 @@ par(mfrow=c(2,2))
 plot(reducedFindemo)
 ```
 
+### Consider Interactions
 
+The following variables have significant coefficients with p-values less than 0.05:
 
+MENT_HEALTH categories (MENT_HEALTH2, MENT_HEALTH3, etc.)
+PHYS_HEALTH categories (PHYS_HEALTHVery Good, PHYS_HEALTHGood, etc.)
+MARSTAT categories (MARSTATDivorced, MARSTATSingle, etc.)
+HOUSING_2 categories (HOUSING_22, HOUSING_23, etc.)
+SEX (Female, Other)
+AGE
+SLEEPHRS
+HHINC categories (HHINC8, HHINC9, etc.)
+COV_MONEYFOOD (No)
+COV_CREDITDEBT (No)
+
+Mental Health × Physical Health: It's plausible that someone with worse mental health may experience a more significant drop in SAT scores if they also have poor physical health.
+
+Income × Marital Status: The effect of household income on SAT scores may depend on the marital status of the individual. People with higher income may have different needs and responses depending on whether they are married or not.
+
+Age × Sleep Hours: The relationship between age and SAT scores could depend on how many hours of sleep the individual gets. Younger individuals may have a different response to sleep hours compared to older individuals.
+
+### One Hot Encoding
+```{r}
+data.no.wt.encoded = cbind(
+  data.no.wt,
+  model.matrix(~ MENT_HEALTH + PHYS_HEALTH + HHINC + MARSTAT + AGE + SLEEPHRS - 1, data = data.no.wt)
+)
+
+# CREATE INTERACTION TERMS
+MENT_HEALTH_VARS <- c("MENT_HEALTH1", "MENT_HEALTH2", "MENT_HEALTH3", "MENT_HEALTH4", "MENT_HEALTH5")
+PHYS_HEALTH_VARS <- c("PHYS_HEALTHVery Good", "PHYS_HEALTHGood", "PHYS_HEALTHFair", "PHYS_HEALTHPoor")
+HHINC_VARS <- c("HHINC2", "HHINC3", "HHINC4", "HHINC5", "HHINC6", "HHINC7", "HHINC8", "HHINC9", "HHINC10", "HHINC11", "HHINC12")
+MARSTAT_VARS <- c("MARSTATDivorced", "MARSTATSeparated", "MARSTATWidowed", "MARSTATSingle", "MARSTATUnmarried couple")
+AGE_VAR <- "AGE"
+SLEEP_HOURS_VAR <- "SLEEPHRS"
+
+# Create interaction terms for mental health × physical health
+MENTAL_HEALTH_PHYSICAL_INTERACTIONS <- paste(MENT_HEALTH_VARS, PHYS_HEALTH_VARS, sep="*")
+
+# Create interaction terms for household income × marital status
+INCOME_MARITAL_INTERACTIONS <- paste(HHINC_VARS, MARSTAT_VARS, sep="*")
+
+# Create interaction term for age × sleep hours
+AGE_SLEEP_INTERACTION <- paste(AGE_VAR, SLEEP_HOURS_VAR, sep="*")
+
+# Combine all the interaction terms into a single list
+INTERACTION_TERMS <- c(MENTAL_HEALTH_PHYSICAL_INTERACTIONS, INCOME_MARITAL_INTERACTIONS, AGE_SLEEP_INTERACTION)
+
+# Build the formula for the model dynamically
+FORMULA <- paste("SAT_total~MENT_HEALTH + PHYS_HEALTH + MARSTAT + HOUSING_2 + SEX + AGE + HHINC + SLEEPHRS + EDUC + EMP + COV_MONEYFOOD + COV_CREDITDEBT + COV_STIMULUS + ", 
+                 paste(INTERACTION_TERMS, collapse = " + "), sep=" ")
+
+print(FORMULA)
+
+add_backticks <- function(formula_string) {
+  # Regular expression to identify variable names with spaces
+  modified_formula <- gsub("([A-Za-z0-9_]+[[:space:]][A-Za-z0-9_]+)", "`\\1`", formula_string)
+  
+  return(modified_formula)
+}
+
+# Example usage
+modified_formula <- add_backticks(FORMULA)
+print(modified_formula)
+```
+
+### reducedFindemo with interactions
+```{r}
+reducedFindemoINT <- lm(as.formula(modified_formula), data = data.no.wt.encoded, weights = data$FINAL_WGT)
+anova(reducedFindemo, reducedFindemoINT)
+```
+We have a p-value greater than .05 so we fail to reject the null hypothesis of both models having similar model fit, there is no evidence to support adding interaction terms significantly improves the model.
+```{r}
+summary(reducedFindemoINT)
+```
 
